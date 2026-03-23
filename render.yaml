@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: paystack-webhook-service
+    env: node
+    region: oregon   # or your preferred region
+    plan: free       # change to starter/standard for production
+    branch: main
+    buildCommand: "npm install"
+    startCommand: "node index.js"
+
+    envVars:
+      - key: PORT
+        value: 10000   # Render injects PORT automatically; your app should use process.env.PORT
+      - key: PAYSTACK_SECRET_KEY
+        sync: false    # Add this in the Render dashboard (kept secret)
