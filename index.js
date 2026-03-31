@@ -1,29 +1,46 @@
-services:
-  - type: web
-    name: paystack-webhook-service
-    env: node
-    region: oregon
-    plan: free   # upgrade to starter/standard for production
-    branch: main
+const express = require("express");
+const crypto = require("crypto");
 
-    buildCommand: "npm install"
-    startCommand: "node index.js"
+const app = express();
 
-    envVars:
-      - key: PORT
-        value: 10000   # Render injects PORT automatically; your code uses process.env.PORT
+// Capture raw body for signature verification
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
 
-      - key: PAYSTACK_SECRET
-        sync: false    # Add in Render dashboard
+// Webhook route
+app.post("/paystack/webhook", (req, res) => {
+  console.log("Webhook received:", req.body);
 
-      - key: MONGO_URL
-        sync: false    # Add your MongoDB connection string
+  // Optional: verify signature
+  const secret = process.env.PAYSTACK_SECRET;
+  const hash = crypto
+    .createHmac("sha512", secret)
+    .update(req.rawBody)
+    .digest("hex");
 
-      - key: SLACK_WEBHOOK_URL
-        sync: false
+  const signature = req.headers["x-paystack-signature"];
 
-      - key: TELEGRAM_TOKEN
-        sync: false
+  if (secret && signature && hash !== signature) {
+    console.log("Invalid signature");
+    return res.status(400).send("Invalid signature");
+  }
 
-      - key: TELEGRAM_CHAT_ID
-        sync: false
+  // Respond immediately
+  res.sendStatus(200);
+});
+
+// Health check
+app.get("/", (req, res) => {
+  res.send("Paystack Webhook Service Running");
+});
+
+// Start server
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
